@@ -1249,32 +1249,36 @@ class ReplicaManager(val config: KafkaConfig,
                                replicaId: Int,
                                fetchOffset: Long,
                                currentTimeMs: Long): Option[Int] = {
-    partition.leaderReplicaIdOpt.flatMap { leaderReplicaId =>
-      // Don't look up preferred for follower fetches via normal replication
-      if (Request.isValidBrokerId(replicaId))
-        None
-      else {
-        replicaSelectorOpt.flatMap { replicaSelector =>
-          val replicaEndpoints = metadataCache.getPartitionReplicaEndpoints(partition.topicPartition,
-            new ListenerName(clientMetadata.listenerName))
-          val replicaInfos = partition.remoteReplicas
-            // Exclude replicas that don't have the requested offset (whether or not if they're in the ISR)
-            .filter(replica => replica.logEndOffset >= fetchOffset && replica.logStartOffset <= fetchOffset)
-            .map(replica => new DefaultReplicaView(
-              replicaEndpoints.getOrElse(replica.brokerId, Node.noNode()),
-              replica.logEndOffset,
-              currentTimeMs - replica.lastCaughtUpTimeMs))
+    if(!partition.isLeader) {
+      None
+    } else {
+      partition.leaderReplicaIdOpt.flatMap { leaderReplicaId =>
+        // Don't look up preferred for follower fetches via normal replication
+        if (Request.isValidBrokerId(replicaId))
+          None
+        else {
+          replicaSelectorOpt.flatMap { replicaSelector =>
+            val replicaEndpoints = metadataCache.getPartitionReplicaEndpoints(partition.topicPartition,
+              new ListenerName(clientMetadata.listenerName))
+            val replicaInfos = partition.remoteReplicas
+              // Exclude replicas that don't have the requested offset (whether or not if they're in the ISR)
+              .filter(replica => replica.logEndOffset >= fetchOffset && replica.logStartOffset <= fetchOffset)
+              .map(replica => new DefaultReplicaView(
+                replicaEndpoints.getOrElse(replica.brokerId, Node.noNode()),
+                replica.logEndOffset,
+                currentTimeMs - replica.lastCaughtUpTimeMs))
 
-          val leaderReplica = new DefaultReplicaView(
-            replicaEndpoints.getOrElse(leaderReplicaId, Node.noNode()),
-            partition.localLogOrException.logEndOffset, 0L)
-          val replicaInfoSet = mutable.Set[ReplicaView]() ++= replicaInfos += leaderReplica
+            val leaderReplica = new DefaultReplicaView(
+              replicaEndpoints.getOrElse(leaderReplicaId, Node.noNode()),
+              partition.localLogOrException.logEndOffset, 0L)
+            val replicaInfoSet = mutable.Set[ReplicaView]() ++= replicaInfos += leaderReplica
 
-          val partitionInfo = new DefaultPartitionView(replicaInfoSet.asJava, leaderReplica)
-          replicaSelector.select(partition.topicPartition, clientMetadata, partitionInfo).asScala.collect {
-            // Even though the replica selector can return the leader, we don't want to send it out with the
-            // FetchResponse, so we exclude it here
-            case selected if !selected.endpoint.isEmpty && selected != leaderReplica => selected.endpoint.id
+            val partitionInfo = new DefaultPartitionView(replicaInfoSet.asJava, leaderReplica)
+            replicaSelector.select(partition.topicPartition, clientMetadata, partitionInfo).asScala.collect {
+              // Even though the replica selector can return the leader, we don't want to send it out with the
+              // FetchResponse, so we exclude it here
+              case selected if !selected.endpoint.isEmpty && selected != leaderReplica => selected.endpoint.id
+            }
           }
         }
       }
