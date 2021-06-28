@@ -282,7 +282,7 @@ subprojects {
   }
 
   // Remove the relevant project name once it's converted to JUnit 5
-  def shouldUseJUnit5 = !(["runtime", "streams"].contains(it.project.name))
+  def shouldUseJUnit5 = !(["streams"].contains(it.project.name))
 
   def testLoggingEvents = ["passed", "skipped", "failed"]
   def testShowStandardStreams = false
@@ -2358,7 +2358,7 @@ project(':connect:runtime') {
     testImplementation libs.junitVintageEngine
     testImplementation libs.powermockJunit4
     testImplementation libs.powermockEasymock
-    testImplementation libs.mockitoCore
+    // testImplementation libs.mockitoCore
     testImplementation libs.mockitoInline // supports mocking static methods, final classes, etc.
     testImplementation libs.mockitoJunitJupiter // supports MockitoExtension
     testImplementation libs.httpclient
@@ -2429,6 +2429,11 @@ project(':connect:runtime') {
     standardOutput = new File(generatedDocsDir, "connect_metrics.html").newOutputStream()
   }
 
+
+  test {
+    if (shouldUseJUnit5)
+      useJUnitPlatform()
+  }
 }
 
 project(':connect:file') {

@@ -38,14 +38,23 @@ import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.runtime.TargetState;
 import org.apache.kafka.connect.storage.KafkaConfigBackingStore;
 import org.apache.kafka.connect.util.ConnectorTaskId;
-import org.easymock.EasyMock;
-import org.easymock.Mock;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.powermock.api.easymock.PowerMock;
+// import org.easymock.EasyMock;
+// import org.easymock.Mock;
+// import org.junit.After;
+// import org.junit.Before;
+// import org.junit.Test;
+import org.junit.jupiter.api.Test;
+// import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+// import org.junit.runners.Parameterized;
+// import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mock;
+
+// import org.mockito.MockitoAnnotations;
+// import org.powermock.api.easymock.PowerMock;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -60,13 +69,16 @@ import java.util.Optional;
 
 import static org.apache.kafka.connect.runtime.distributed.ConnectProtocolCompatibility.COMPATIBLE;
 import static org.apache.kafka.connect.runtime.distributed.ConnectProtocolCompatibility.EAGER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.runners.Parameterized.Parameter;
 import static org.junit.runners.Parameterized.Parameters;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-@RunWith(value = Parameterized.class)
+@ExtendWith(MockitoExtension.class)
 public class WorkerCoordinatorTest {
 
     private static final String LEADER_URL = "leaderUrl:8083";
@@ -116,7 +128,7 @@ public class WorkerCoordinatorTest {
     @Parameter(1)
     public int expectedMetadataSize;
 
-    @Before
+    @BeforeEach
     public void setup() {
         LogContext logContext = new LogContext();
 
@@ -128,7 +140,8 @@ public class WorkerCoordinatorTest {
         this.consumerClient = new ConsumerNetworkClient(logContext, client, metadata, time, 100, 1000, heartbeatIntervalMs);
         this.metrics = new Metrics(time);
         this.rebalanceListener = new MockRebalanceListener();
-        this.configStorage = PowerMock.createMock(KafkaConfigBackingStore.class);
+        // this.configStorage = PowerMock.createMock(KafkaConfigBackingStore.class);
+        // this.configStorage = MockitoAnnotations.openMocks(KafkaConfigBackingStore.class);
         this.rebalanceConfig = new GroupRebalanceConfig(sessionTimeoutMs,
                                                         rebalanceTimeoutMs,
                                                         heartbeatIntervalMs,
@@ -208,7 +221,7 @@ public class WorkerCoordinatorTest {
         );
     }
 
-    @After
+    @AfterEach
     public void teardown() {
         this.metrics.close();
     }
@@ -218,9 +231,10 @@ public class WorkerCoordinatorTest {
 
     @Test
     public void testMetadata() {
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        doReturn(configState1).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         JoinGroupRequestData.JoinGroupRequestProtocolCollection serialized = coordinator.metadata();
         assertEquals(expectedMetadataSize, serialized.size());
@@ -233,14 +247,17 @@ public class WorkerCoordinatorTest {
                 ByteBuffer.wrap(defaultMetadata.metadata()));
         assertEquals(1, state.offset());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
     public void testNormalJoinGroupLeader() {
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // throw new?("configStorage = " + configStorage);
+        doReturn(configState1).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         final String consumerId = "leader";
 
@@ -270,14 +287,16 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.singletonList(connectorId1), rebalanceListener.assignment.connectors());
         assertEquals(Collections.emptyList(), rebalanceListener.assignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
     public void testNormalJoinGroupFollower() {
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        doReturn(configState1).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         final String memberId = "member";
 
@@ -303,7 +322,8 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.emptyList(), rebalanceListener.assignment.connectors());
         assertEquals(Collections.singletonList(taskId1x0), rebalanceListener.assignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
@@ -312,10 +332,12 @@ public class WorkerCoordinatorTest {
         // need to retry the join.
 
         // When the first round fails, we'll take an updated config snapshot
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState2);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState2);
+        doReturn(configState1).when(configStorage).snapshot();
+        doReturn(configState2).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         final String memberId = "member";
 
@@ -337,15 +359,17 @@ public class WorkerCoordinatorTest {
                 Collections.emptyList(), Collections.singletonList(taskId1x0), Errors.NONE));
         coordinator.ensureActiveGroup();
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
     public void testRejoinGroup() {
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        doReturn(configState1).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         client.prepareResponse(FindCoordinatorResponse.prepareResponse(Errors.NONE, node));
         coordinator.ensureCoordinatorReady(time.timer(Long.MAX_VALUE));
@@ -379,7 +403,8 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.singletonList(connectorId1), rebalanceListener.assignment.connectors());
         assertEquals(Collections.emptyList(), rebalanceListener.assignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
@@ -387,9 +412,10 @@ public class WorkerCoordinatorTest {
         // Since all the protocol responses are mocked, the other tests validate doSync runs, but don't validate its
         // output. So we test it directly here.
 
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState1);
+        doReturn(configState1).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         // Prime the current configuration state
         coordinator.metadata();
@@ -421,7 +447,8 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.emptyList(), memberAssignment.connectors());
         assertEquals(Collections.singletonList(taskId1x0), memberAssignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
@@ -429,9 +456,10 @@ public class WorkerCoordinatorTest {
         // Since all the protocol responses are mocked, the other tests validate doSync runs, but don't validate its
         // output. So we test it directly here.
 
-        EasyMock.expect(configStorage.snapshot()).andReturn(configState2);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configState2);
+        doReturn(configState2).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         // Prime the current configuration state
         coordinator.metadata();
@@ -464,7 +492,8 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.singletonList(connectorId2), memberAssignment.connectors());
         assertEquals(Collections.singletonList(taskId1x1), memberAssignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     @Test
@@ -472,9 +501,10 @@ public class WorkerCoordinatorTest {
         // Since all the protocol responses are mocked, the other tests validate doSync runs, but don't validate its
         // output. So we test it directly here.
 
-        EasyMock.expect(configStorage.snapshot()).andReturn(configStateSingleTaskConnectors);
+        // EasyMock.expect(configStorage.snapshot()).andReturn(configStateSingleTaskConnectors);
+        doReturn(configStateSingleTaskConnectors).when(configStorage).snapshot();
 
-        PowerMock.replayAll();
+        // PowerMock.replayAll();
 
         // Prime the current configuration state
         coordinator.metadata();
@@ -508,7 +538,8 @@ public class WorkerCoordinatorTest {
         assertEquals(Collections.singletonList(connectorId2), memberAssignment.connectors());
         assertEquals(Arrays.asList(taskId1x0, taskId3x0), memberAssignment.tasks());
 
-        PowerMock.verifyAll();
+        // PowerMock.verifyAll();
+        verify(configStorage, times(1)).snapshot();
     }
 
     private JoinGroupResponse joinGroupLeaderResponse(int generationId, String memberId,
